@@ -37,25 +37,39 @@ client = CasinoBot()
 async def balance(interaction: discord.Interaction):
     try:
         # Query the members table for the user
-        response = client.supabase.table('members').select('credits').eq('username', str(interaction.user.name)).execute()
+        response = client.supabase.table('members').select('credits,wins,losses').eq('username', str(interaction.user.name)).execute()
         
         # Create embed
         if response.data and len(response.data) > 0:
             # User exists, show their balance in a green embed
-            credits = response.data[0]['credits']
+            user_data = response.data[0]
+            credits = user_data['credits']
+            wins = user_data.get('wins', 0)
+            losses = user_data.get('losses', 0)
+            total_games = wins + losses
+            win_ratio = (wins / total_games * 100) if total_games > 0 else 0
+
             embed = discord.Embed(
                 title="Casino Balance",
                 description=f"💰 **{credits:,}** credits",
                 color=discord.Color.green()
             )
             embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+            embed.add_field(
+                name="Statistics",
+                value=f"Total Games: **{total_games:,}**\nWins: **{wins:,}**\nLosses: **{losses:,}**\nWin Rate: **{win_ratio:.1f}%**",
+                inline=False
+            )
             embed.set_footer(text="Thanks for playing!")
             await interaction.response.send_message(embed=embed)
         else:
             # Create new user account with initial values
             new_user = {
                 'username': str(interaction.user.name),
-                'credits': 0
+                'credits': 0,
+                'bias': 1,
+                'wins': 0,
+                'losses': 0
             }
             client.supabase.table('members').insert(new_user).execute()
             
@@ -66,6 +80,11 @@ async def balance(interaction: discord.Interaction):
                 color=discord.Color.blue()
             )
             embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+            embed.add_field(
+                name="Statistics",
+                value="Total Games: **0**\nWins: **0**\nLosses: **0**\nWin Rate: **0.0%**",
+                inline=False
+            )
             embed.set_footer(text="Welcome aboard! 🎰")
             await interaction.response.send_message(embed=embed)
             
