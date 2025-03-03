@@ -309,5 +309,82 @@ async def give(interaction: discord.Interaction, user: discord.User, amount: int
         )
         await interaction.response.send_message(embed=error_embed, ephemeral=True)
 
+@client.tree.command(
+    name="withdraw",
+    description="Withdraw credits from a user (Admin only)"
+)
+@app_commands.describe(
+    user="The user to withdraw credits from",
+    amount="Amount of credits to withdraw"
+)
+async def withdraw(interaction: discord.Interaction, user: discord.User, amount: int):
+    try:
+        # Check if the command user is the admin
+        if str(interaction.user.name) != "swastikbiswas":
+            embed = discord.Embed(
+                title="Unauthorized",
+                description="You do not have permission to use this command.",
+                color=discord.Color.red()
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+
+        # Validate amount
+        if amount <= 0:
+            await interaction.response.send_message("Please specify a positive amount of credits to withdraw!", ephemeral=True)
+            return
+
+        # Get target user's data
+        response = client.supabase.table('members').select('credits').eq('username', str(user.name)).execute()
+
+        if response.data and len(response.data) > 0:
+            # User exists, check if they have enough credits
+            current_credits = response.data[0]['credits']
+            if current_credits < amount:
+                embed = discord.Embed(
+                    title="Insufficient Credits",
+                    description=f"{user.mention} only has **{current_credits:,}** credits.",
+                    color=discord.Color.red()
+                )
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+                return
+
+            # Update credits in database
+            new_credits = current_credits - amount
+            client.supabase.table('members').update({'credits': new_credits}).eq('username', str(user.name)).execute()
+            
+            # Create success embed
+            embed = discord.Embed(
+                title="Credits Withdrawn",
+                description=f"Successfully withdrawn credits from {user.mention}!",
+                color=discord.Color.green()
+            )
+            embed.add_field(
+                name="Details",
+                value=f"Amount: **{amount:,}** credits\nNew Balance: **{new_credits:,}** credits",
+                inline=False
+            )
+            embed.set_author(name=user.display_name, icon_url=user.display_avatar.url)
+            embed.set_footer(text="💰 Credits withdrawn successfully!")
+            
+            await interaction.response.send_message(embed=embed)
+        else:
+            # User doesn't exist
+            embed = discord.Embed(
+                title="User Not Found",
+                description=f"Could not find an account for {user.mention}.",
+                color=discord.Color.red()
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            
+    except Exception as e:
+        print(f"Error in withdraw command: {e}")
+        error_embed = discord.Embed(
+            title="Error",
+            description="An error occurred while processing the command. Please try again later.",
+            color=discord.Color.dark_red()
+        )
+        await interaction.response.send_message(embed=error_embed, ephemeral=True)
+
 # Run the bot
 client.run(TOKEN)
