@@ -42,6 +42,13 @@ Allow administrators to give credits to users.
 - `user`: The Discord user to give credits to
 - `amount`: Number of credits to give
 
+### `/withdraw` (Admin Only)
+Allow administrators to withdraw credits from users.
+
+**Parameters:**
+- `user`: The Discord user to withdraw credits from
+- `amount`: Number of credits to withdraw
+
 ## European Roulette Numbers
 
 - **Red Numbers:** 1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36

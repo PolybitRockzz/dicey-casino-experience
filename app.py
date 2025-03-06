@@ -5,6 +5,7 @@ import discord
 from discord import app_commands
 from supabase import create_client, Client
 from random import randint
+from blackjack import setup_blackjack_command
 
 # Load environment variables
 load_dotenv()
@@ -30,6 +31,10 @@ class CasinoBot(discord.Client):
 
     async def setup_hook(self):
         await self.tree.sync()
+
+    async def on_ready(self):
+        await self.change_presence(activity=discord.Game(name="Welcome to Vegas!"))
+        print(f'{self.user} has connected to Discord!')
 
 client = CasinoBot()
 
@@ -67,7 +72,6 @@ async def balance(interaction: discord.Interaction):
             new_user = {
                 'username': str(interaction.user.name),
                 'credits': 0,
-                'bias': 1,
                 'wins': 0,
                 'losses': 0
             }
@@ -121,7 +125,12 @@ async def roulette(interaction: discord.Interaction, amount: int, choice: str):
 
         # Validate bet amount
         if amount <= 0:
-            await interaction.followup.send("Please bet a positive amount of credits!", ephemeral=True)
+            embed = discord.Embed(
+                title="Invalid Bet",
+                description="Please bet a positive amount of credits!",
+                color=discord.Color.red()
+            )
+            await interaction.followup.send(embed=embed, ephemeral=True)
             return
 
         # Check minimum bet requirement
@@ -138,13 +147,23 @@ async def roulette(interaction: discord.Interaction, amount: int, choice: str):
         response = client.supabase.table('members').select('credits').eq('username', str(interaction.user.name)).execute()
 
         if not response.data:
-            await interaction.followup.send("Please check your balance first to create an account!", ephemeral=True)
+            embed = discord.Embed(
+                title="Account Required",
+                description="Please check your balance first to create an account!",
+                color=discord.Color.yellow()
+            )
+            await interaction.followup.send(embed=embed, ephemeral=True)
             return
 
         current_credits = response.data[0]['credits']
 
         if current_credits < amount:
-            await interaction.followup.send(f"You don't have enough credits! Your balance: {current_credits:,} credits", ephemeral=True)
+            embed = discord.Embed(
+                title="Insufficient Credits",
+                description=f"You don't have enough credits! Your balance: **{current_credits:,}** credits",
+                color=discord.Color.red()
+            )
+            await interaction.followup.send(embed=embed, ephemeral=True)
             return
 
         # European Roulette numbers
@@ -188,7 +207,7 @@ async def roulette(interaction: discord.Interaction, amount: int, choice: str):
             number_range = '0' if result_number == 0 else \
                           '1-18' if result_number in low_numbers else '19-36'
             embed = discord.Embed(
-                title="<:roulettewheel:1344046246259855410> Roulette Results",
+                title="<:roulettewheel:1347118740009123841> Roulette Results",
                 description=f"The ball landed on **{result_number}** ({number_color}, {number_range})!",
                 color=discord.Color.green() if won else discord.Color.red()
             )
@@ -236,7 +255,7 @@ async def roulette(interaction: discord.Interaction, amount: int, choice: str):
 async def give(interaction: discord.Interaction, user: discord.User, amount: int):
     try:
         # Check if the command user is the admin
-        if str(interaction.user.name) != "swastikbiswas":
+        if str(interaction.user.name) not in ["swastikbiswas", "kuroiki0518"]:
             embed = discord.Embed(
                 title="Unauthorized",
                 description="You do not have permission to use this command.",
@@ -247,7 +266,12 @@ async def give(interaction: discord.Interaction, user: discord.User, amount: int
 
         # Validate amount
         if amount <= 0:
-            await interaction.response.send_message("Please specify a positive amount of credits!", ephemeral=True)
+            embed = discord.Embed(
+                title="Invalid Amount",
+                description="Please specify a positive amount of credits!",
+                color=discord.Color.red()
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
             return
 
         # Get target user's data
@@ -320,7 +344,7 @@ async def give(interaction: discord.Interaction, user: discord.User, amount: int
 async def withdraw(interaction: discord.Interaction, user: discord.User, amount: int):
     try:
         # Check if the command user is the admin
-        if str(interaction.user.name) != "swastikbiswas":
+        if str(interaction.user.name) not in ["swastikbiswas", "kuroiki0518"]:
             embed = discord.Embed(
                 title="Unauthorized",
                 description="You do not have permission to use this command.",
@@ -331,7 +355,12 @@ async def withdraw(interaction: discord.Interaction, user: discord.User, amount:
 
         # Validate amount
         if amount <= 0:
-            await interaction.response.send_message("Please specify a positive amount of credits to withdraw!", ephemeral=True)
+            embed = discord.Embed(
+                title="Invalid Amount",
+                description="Please specify a positive amount of credits to withdraw!",
+                color=discord.Color.red()
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
             return
 
         # Get target user's data
@@ -387,4 +416,9 @@ async def withdraw(interaction: discord.Interaction, user: discord.User, amount:
         await interaction.response.send_message(embed=error_embed, ephemeral=True)
 
 # Run the bot
-client.run(TOKEN)
+async def main():
+    await setup_blackjack_command(client)
+    await client.start(TOKEN)
+
+import asyncio
+asyncio.run(main())
